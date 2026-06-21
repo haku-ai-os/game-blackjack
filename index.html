@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<!-- Haku アプリ制作キット準拠｜ゲーム系（カジノ・ブラックジャック）／単一ファイル完結・ビルド不要 -->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BLACKJACK | Haku</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700;900&family=Cormorant+Garamond:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+:root{
+  --gold:#e8c98a; --gold2:#c8a96e; --goldline:rgba(232,201,138,.55);
+  --felt1:#1c6b4d; --felt2:#0d4030; --felt3:#06231a;
+  --text:#f3efe6; --muted:rgba(243,239,230,.55);
+  --red:#e0263c; --blue:#2f7fe0; --green:#1f9d57; --ink:#06140e;
+  --card:rgba(255,255,255,.05); --border:rgba(232,201,138,.22);
+}
+html,body{height:100%;}
+body{
+  min-height:100vh; color:var(--text);
+  font-family:'Noto Sans JP',sans-serif; overflow:hidden; -webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 30%, var(--felt1) 0%, var(--felt2) 52%, var(--felt3) 100%),
+    var(--felt3);
+}
+body::before{ /* vignette */
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 100% 100% at 50% 42%, transparent 56%, rgba(0,0,0,.55) 100%);
+}
+
+.app{position:relative;z-index:1;height:100vh;max-width:560px;margin:0 auto;display:flex;flex-direction:column;}
+
+/* ── スクリーン ── */
+.screen{flex:1;display:none;flex-direction:column;animation:fadeIn .5s ease;min-height:0;}
+.screen.active{display:flex;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── タイトル ── */
+#screen-title{align-items:center;justify-content:center;text-align:center;padding:24px 20px;}
+.badge{font-family:'DM Mono','Noto Sans JP',monospace;font-size:10px;color:var(--gold);letter-spacing:5px;
+  text-transform:uppercase;border:1px solid var(--goldline);padding:7px 20px;border-radius:100px;
+  background:rgba(232,201,138,.06);margin-bottom:22px;animation:pulse 3s ease-in-out infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,201,138,.18);}50%{box-shadow:0 0 0 8px rgba(232,201,138,0);}}
+.title-main{font-family:'Cormorant Garamond','Noto Sans JP',serif;font-weight:700;font-size:clamp(44px,13vw,72px);
+  line-height:1;letter-spacing:.04em;margin-bottom:6px;}
+.title-main span{background:linear-gradient(100deg,#f6e3b6,var(--gold),var(--gold2));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.subtitle{font-size:13px;color:var(--muted);line-height:1.9;margin-bottom:26px;}
+.rules-mini{font-family:'DM Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:1px;line-height:2;
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:12px 0;margin-bottom:30px;width:100%;max-width:330px;}
+.footer-note{font-size:10px;color:var(--muted);margin-top:24px;letter-spacing:1px;}
+
+/* ── ボタン ── */
+.btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;max-width:320px;
+  background:linear-gradient(135deg,#e8c98a 0%,#c8a96e 55%,#a8894e 100%);color:var(--ink);font-weight:900;font-size:16px;
+  border:none;border-radius:13px;padding:16px 32px;cursor:pointer;transition:all .3s ease;letter-spacing:.06em;
+  box-shadow:0 4px 26px rgba(232,201,138,.3),0 2px 8px rgba(0,0,0,.4);}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 40px rgba(232,201,138,.45);}
+.btn-primary:active{transform:translateY(0);}
+.btn-ghost{width:100%;max-width:320px;background:var(--card);color:var(--text);font-weight:700;font-size:14px;
+  border:1px solid var(--border);border-radius:13px;padding:13px 24px;cursor:pointer;transition:all .25s ease;margin-top:11px;}
+.btn-ghost:hover{background:rgba(255,255,255,.09);border-color:var(--goldline);}
+.note-cta{width:100%;max-width:320px;margin-top:18px;background:linear-gradient(135deg,#15402f,#0c2a1f);color:var(--text);
+  border:1px solid var(--border);border-radius:13px;padding:14px 24px;cursor:pointer;font-weight:700;font-size:14px;
+  transition:all .3s ease;box-shadow:0 4px 20px rgba(0,0,0,.3);}
+.note-cta:hover{transform:translateY(-2px);border-color:var(--gold);box-shadow:0 8px 30px rgba(232,201,138,.22);}
+.note-cta small{display:block;font-weight:400;font-size:11px;color:var(--muted);margin-top:3px;}
+
+/* ── ゲーム画面 ── */
+#screen-game{padding:10px 12px 12px;}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px;}
+.hud-box{flex:1;border:1px solid var(--border);border-radius:11px;background:rgba(6,20,14,.5);padding:8px 14px;
+  backdrop-filter:blur(4px);}
+.hud-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;}
+.hud-val{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:700;color:var(--text);line-height:1.1;}
+.hud-val.gold{color:var(--gold);}
+
+.table{flex:1;display:flex;flex-direction:column;justify-content:space-between;min-height:0;position:relative;padding:6px 0;}
+.zone{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.zone-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;}
+.felt-text{text-align:center;font-family:'Cormorant Garamond',serif;line-height:1.5;pointer-events:none;}
+.felt-text .l1{font-size:clamp(15px,4.5vw,20px);font-weight:700;color:var(--gold);letter-spacing:.12em;}
+.felt-text .l2{font-size:10px;color:var(--goldline);letter-spacing:.18em;border:1px solid var(--border);
+  border-radius:100px;display:inline-block;padding:2px 14px;margin-top:5px;}
+.felt-text .l3{font-size:10px;color:var(--muted);letter-spacing:.14em;margin-top:6px;}
+
+/* カード */
+.cards{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:88px;align-items:center;}
+.card{width:clamp(50px,14vw,64px);height:clamp(72px,20vw,92px);border-radius:8px;position:relative;
+  background:linear-gradient(160deg,#fff,#eef0f4);box-shadow:0 6px 16px rgba(0,0,0,.45),inset 0 0 0 1px rgba(0,0,0,.06);
+  color:#1a1a22;animation:deal .35s ease;}
+@keyframes deal{from{opacity:0;transform:translateY(-18px) rotate(-4deg);}to{opacity:1;transform:none;}}
+.card .corner{position:absolute;top:5px;left:6px;font-family:'DM Mono',monospace;font-weight:600;font-size:13px;line-height:1;}
+.card .pip{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(24px,7vw,32px);}
+.card.red{color:#c01933;}
+.card.back{background:repeating-linear-gradient(45deg,#0d4030 0 7px,#0a3526 7px 14px),#0d4030;
+  box-shadow:0 6px 16px rgba(0,0,0,.45),inset 0 0 0 2px var(--goldline),inset 0 0 0 5px rgba(6,20,14,.6);}
+.hand{display:flex;flex-direction:column;align-items:center;gap:4px;padding:5px;border-radius:12px;transition:all .25s;}
+.hand.active{background:rgba(232,201,138,.08);box-shadow:0 0 0 1px var(--goldline),0 0 22px rgba(232,201,138,.18);}
+.hands-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.val-badge{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--ink);background:var(--gold);
+  border-radius:7px;padding:2px 12px;letter-spacing:1px;}
+.val-badge.bust{background:var(--red);color:#fff;}
+.val-badge.bj{background:linear-gradient(90deg,#f6e3b6,var(--gold));}
+.bet-chip{font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);margin-top:2px;}
+
+/* コントロール */
+.controls{margin-top:8px;}
+.bet-bar{display:flex;flex-direction:column;gap:10px;}
+.chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.chip{width:50px;height:50px;border-radius:50%;cursor:pointer;display:grid;place-items:center;font-weight:900;font-size:14px;
+  color:#fff;border:2px dashed rgba(255,255,255,.7);transition:transform .15s,box-shadow .15s;box-shadow:0 4px 10px rgba(0,0,0,.4);
+  font-family:'DM Mono',monospace;text-shadow:0 1px 2px rgba(0,0,0,.4);}
+.chip:active{transform:scale(.92);}
+.chip:hover{transform:translateY(-3px);box-shadow:0 8px 18px rgba(0,0,0,.5);}
+.chip.c1{background:radial-gradient(circle,#f4f4f4,#c9c9c9);color:#333;text-shadow:none;border-color:#aaa;}
+.chip.c5{background:radial-gradient(circle,#e8455a,#b21d30);}
+.chip.c10{background:radial-gradient(circle,#3f8ee8,#1c5bb0);}
+.chip.c25{background:radial-gradient(circle,#2bb56a,#147a44);}
+.chip.c100{background:radial-gradient(circle,#3a3a44,#101016);border-color:var(--gold);color:var(--gold);}
+.bet-actions{display:flex;gap:8px;}
+.bet-actions .btn-ghost{margin-top:0;flex:1;max-width:none;padding:13px;}
+.bet-actions .btn-primary{flex:1.4;max-width:none;padding:14px;}
+.action-bar{display:none;gap:8px;}
+.action-bar.show{display:flex;}
+.act{flex:1;border:none;border-radius:12px;padding:15px 6px;cursor:pointer;font-weight:900;font-size:14px;color:#fff;
+  letter-spacing:.04em;transition:transform .15s,filter .2s;box-shadow:0 4px 14px rgba(0,0,0,.4);}
+.act:active{transform:scale(.96);}
+.act:disabled{opacity:.32;cursor:not-allowed;filter:grayscale(.5);}
+.act small{display:block;font-weight:400;font-size:9px;opacity:.8;margin-top:2px;}
+.act.hit{background:linear-gradient(135deg,#2bb56a,#147a44);}
+.act.stand{background:linear-gradient(135deg,#e8455a,#b21d30);}
+.act.double{background:linear-gradient(135deg,#3f8ee8,#1c5bb0);}
+.act.split{background:linear-gradient(135deg,#8a6fd0,#5e44a0);}
+
+/* インシュランス・結果オーバーレイ */
+.overlay{position:absolute;inset:0;z-index:5;display:none;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;background:rgba(6,20,14,.82);backdrop-filter:blur(6px);padding:24px;border-radius:14px;animation:fadeIn .3s ease;}
+.overlay.show{display:flex;}
+.ov-title{font-family:'Cormorant Garamond',serif;font-weight:700;font-size:clamp(34px,10vw,52px);line-height:1;margin-bottom:8px;}
+.ov-title.win{color:var(--gold);}.ov-title.lose{color:var(--red);}.ov-title.push{color:#9fc4e8;}
+.ov-delta{font-family:'DM Mono',monospace;font-size:20px;margin-bottom:6px;}
+.ov-delta.plus{color:#5fe39a;}.ov-delta.minus{color:#ff7d8f;}
+.ov-detail{font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:22px;}
+.ov-btns{display:flex;flex-direction:column;align-items:center;width:100%;gap:0;}
+.ov-q{font-size:15px;font-weight:700;margin-bottom:18px;}
+.ins-row{display:flex;gap:10px;width:100%;max-width:300px;}
+.ins-row .btn-ghost,.ins-row .btn-primary{margin-top:0;flex:1;max-width:none;}
+
+.toast{position:absolute;top:64px;left:50%;transform:translateX(-50%);background:rgba(6,20,14,.95);
+  border:1px solid var(--goldline);color:var(--gold);font-size:12px;padding:8px 18px;border-radius:100px;z-index:9;
+  opacity:0;transition:opacity .3s;pointer-events:none;font-weight:700;}
+.toast.show{opacity:1;}
+.game-foot{text-align:center;margin-top:8px;}
+.game-foot a{color:var(--muted);font-size:10px;text-decoration:none;letter-spacing:1px;cursor:pointer;}
+.game-foot a:hover{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ════ タイトル ════ -->
+  <section class="screen active" id="screen-title">
+    <div class="badge">Casino · Haku</div>
+    <h1 class="title-main"><span>BLACKJACK</span></h1>
+    <p class="subtitle">本格カジノ・ブラックジャック。<br>チップを賭けて、ディーラーに勝て。</p>
+    <div class="rules-mini">
+      BLACKJACK PAYS 3 TO 2<br>
+      DEALER STANDS ON 17<br>
+      INSURANCE PAYS 2 TO 1
+    </div>
+    <button class="btn-primary" onclick="enterGame()">テーブルにつく →</button>
+    <button class="note-cta" onclick="openNote()">
+      このゲームのChatGPTプロンプトを見る（note）
+      <small>1文送るだけで同じゲームが作れる →</small>
+    </button>
+    <p class="footer-note">@ai_side_haku</p>
+  </section>
+
+  <!-- ════ ゲーム ════ -->
+  <section class="screen" id="screen-game">
+    <div class="hud">
+      <div class="hud-box"><div class="hud-label">Balance</div><div class="hud-val gold" id="balance">1,000</div></div>
+      <div class="hud-box" style="flex:.8"><div class="hud-label">Bet</div><div class="hud-val" id="bet">0</div></div>
+    </div>
+
+    <div class="table">
+      <div class="zone">
+        <div class="zone-label">Dealer <span id="dealer-val"></span></div>
+        <div class="cards" id="dealer-cards"></div>
+      </div>
+
+      <div class="felt-text">
+        <div class="l1">BLACKJACK PAYS 3 TO 2</div>
+        <div class="l2">DEALER MUST STAND ON 17</div>
+        <div class="l3">INSURANCE PAYS 2 TO 1</div>
+      </div>
+
+      <div class="zone">
+        <div class="hands-row" id="player-hands"></div>
+        <div class="zone-label">You</div>
+      </div>
+
+      <!-- インシュランス -->
+      <div class="overlay" id="ov-insurance">
+        <div class="ov-q">ディーラーのアップカードがA。<br>インシュランスを賭けますか？</div>
+        <div class="ins-row">
+          <button class="btn-ghost" onclick="takeInsurance(false)">不要</button>
+          <button class="btn-primary" onclick="takeInsurance(true)">取る（½）</button>
+        </div>
+      </div>
+      <!-- 結果 -->
+      <div class="overlay" id="ov-result">
+        <div class="ov-title" id="ov-title">WIN</div>
+        <div class="ov-delta" id="ov-delta">+25</div>
+        <div class="ov-detail" id="ov-detail"></div>
+        <div class="ov-btns" style="width:100%;max-width:320px">
+          <button class="btn-primary" onclick="newRound()">次のゲーム</button>
+          <button class="btn-ghost" onclick="shareResult()">𝕏 で結果をシェア</button>
+          <button class="btn-ghost" onclick="copyResult()">結果をコピー</button>
+        </div>
+      </div>
+
+      <div class="toast" id="toast"></div>
+    </div>
+
+    <div class="controls">
+      <div class="bet-bar" id="bet-bar">
+        <div class="chips">
+          <div class="chip c1"   onclick="addChip(1)">1</div>
+          <div class="chip c5"   onclick="addChip(5)">5</div>
+          <div class="chip c10"  onclick="addChip(10)">10</div>
+          <div class="chip c25"  onclick="addChip(25)">25</div>
+          <div class="chip c100" onclick="addChip(100)">100</div>
+        </div>
+        <div class="bet-actions">
+          <button class="btn-ghost" onclick="clearBet()">クリア</button>
+          <button class="btn-primary" onclick="deal()">配る（DEAL）</button>
+        </div>
+      </div>
+      <div class="action-bar" id="action-bar">
+        <button class="act hit"    onclick="hit()">ヒット</button>
+        <button class="act stand"  onclick="stand()">スタンド</button>
+        <button class="act double" id="btn-double" onclick="dbl()">ダブル</button>
+        <button class="act split"  id="btn-split"  onclick="split()">スプリット</button>
+      </div>
+    </div>
+    <div class="game-foot"><a onclick="openNote()">完全版プロンプトを見る（note）</a> ・ <span style="color:var(--muted);font-size:10px">@ai_side_haku</span></div>
+  </section>
+
+</div>
+
+<script>
+/* ════════ 設定（公開時に差し替え） ════════ */
+const APP_URL  = 'https://haku-ai-os.github.io/【リポジトリ名】/';  // 【変更】このアプリ自身の公開URL
+const NOTE_URL = '#';  // 【変更】note記事URL（未公開は # のまま）
+
+/* ════════ カード・ロジック ════════ */
+const SUITS=['♠','♥','♦','♣'], RANKS=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const isRed=s=>s==='♥'||s==='♦';
+function rankValue(r){ if(r==='A')return 11; if(r==='K'||r==='Q'||r==='J')return 10; return parseInt(r,10); }
+function handValue(cards){ let v=0,a=0; for(const c of cards){v+=rankValue(c.rank); if(c.rank==='A')a++;} while(v>21&&a>0){v-=10;a--;} return v; }
+function isBJ(cards){ return cards.length===2 && handValue(cards)===21; }
+
+let shoe=[];
+function buildShoe(){ shoe=[]; for(let d=0;d<4;d++) for(const s of SUITS) for(const r of RANKS) shoe.push({rank:r,suit:s});
+  for(let i=shoe.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [shoe[i],shoe[j]]=[shoe[j],shoe[i]]; } }
+function draw(){ if(shoe.length<52) buildShoe(); return shoe.pop(); }
+
+/* ════════ 状態 ════════ */
+let balance, bet, hands, hi, dealer, phase, insurance, lastResult;
+
+function loadBalance(){ const b=Number(localStorage.getItem('bj_balance')); balance=(b&&b>0)?b:1000; }
+function saveBalance(){ localStorage.setItem('bj_balance', String(balance)); }
+function fmt(n){ return Number.isInteger(n)? n.toLocaleString('ja-JP') : n.toLocaleString('ja-JP',{minimumFractionDigits:1,maximumFractionDigits:1}); }
+
+/* ════════ 画面遷移 ════════ */
+function showScreen(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+function enterGame(){ showScreen('screen-game'); newRound(); }
+
+function flash(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),1400); }
+
+/* ════════ ベット ════════ */
+function newRound(){
+  if(balance<=0){ balance=1000; saveBalance(); flash('残高を1,000に補充しました'); }
+  phase='bet'; bet=0; hands=[]; hi=0; dealer=[]; insurance=0;
+  document.getElementById('ov-result').classList.remove('show');
+  document.getElementById('ov-insurance').classList.remove('show');
+  document.getElementById('bet-bar').style.display='flex';
+  document.getElementById('action-bar').classList.remove('show');
+  render();
+}
+function addChip(v){ if(phase!=='bet')return; if(bet+v>balance){ flash('残高が足りません'); return; } bet+=v; render(); }
+function clearBet(){ if(phase!=='bet')return; bet=0; render(); }
+
+function deal(){
+  if(phase!=='bet') return;
+  if(bet<=0){ flash('チップを賭けてください'); return; }
+  balance-=bet; saveBalance();
+  hands=[{cards:[draw(),draw()], bet:bet, done:false, doubled:false, split:false}];
+  hi=0; dealer=[draw(),draw()]; insurance=0;
+  document.getElementById('bet-bar').style.display='none';
+  phase='deal'; render();
+  if(dealer[0].rank==='A'){ phase='insurance'; document.getElementById('ov-insurance').classList.add('show'); return; }
+  postDeal();
+}
+function takeInsurance(yes){
+  if(phase!=='insurance') return;
+  document.getElementById('ov-insurance').classList.remove('show');
+  if(yes){ const ins=Math.floor(hands[0].bet/2); if(ins<=balance){ insurance=ins; balance-=ins; saveBalance(); flash('インシュランス '+ins); } }
+  postDeal();
+}
+function postDeal(){
+  const p=hands[0];
+  if(isBJ(p.cards) || isBJ(dealer)){ phase='dealer'; render(); setTimeout(settle,650); return; }
+  phase='player'; hi=0;
+  document.getElementById('action-bar').classList.add('show');
+  render(); updateActions();
+}
+
+/* ════════ プレイヤー操作 ════════ */
+function activeHand(){ return hands[hi]; }
+function advance(){
+  hi++; while(hi<hands.length && hands[hi].done) hi++;
+  if(hi>=hands.length){ dealerTurn(); }
+  else { render(); updateActions(); }
+}
+function hit(){
+  if(phase!=='player') return; const h=activeHand(); h.cards.push(draw());
+  if(handValue(h.cards)>21){ h.done=true; render(); setTimeout(advance,500); }
+  else { render(); updateActions(); }
+}
+function stand(){ if(phase!=='player') return; activeHand().done=true; advance(); }
+function dbl(){
+  if(phase!=='player') return; const h=activeHand();
+  if(h.cards.length!==2 || balance<h.bet){ flash('ダブルできません'); return; }
+  balance-=h.bet; saveBalance(); h.bet*=2; h.doubled=true; h.cards.push(draw()); h.done=true;
+  render(); setTimeout(advance,500);
+}
+function split(){
+  if(phase!=='player') return; const h=activeHand();
+  if(h.cards.length!==2 || rankValue(h.cards[0].rank)!==rankValue(h.cards[1].rank)){ flash('スプリットできません'); return; }
+  if(balance<h.bet){ flash('残高が足りません'); return; }
+  if(hands.length>=4){ flash('これ以上分けられません'); return; }
+  balance-=h.bet; saveBalance();
+  const moved=h.cards.pop();
+  const nh={cards:[moved,draw()], bet:h.bet, done:false, doubled:false, split:true};
+  h.cards.push(draw()); h.split=true;
+  hands.splice(hi+1,0,nh);
+  if(h.cards[0].rank==='A'){ h.done=true; nh.done=true; render(); setTimeout(advance,500); return; } // スプリットAは1枚ずつ
+  render(); updateActions();
+}
+function updateActions(){
+  const h=activeHand(); if(!h) return;
+  const canDouble = h.cards.length===2 && balance>=h.bet;
+  const canSplit  = h.cards.length===2 && rankValue(h.cards[0].rank)===rankValue(h.cards[1].rank) && balance>=h.bet && hands.length<4;
+  document.getElementById('btn-double').disabled=!canDouble;
+  document.getElementById('btn-split').disabled=!canSplit;
+}
+
+/* ════════ ディーラー・精算 ════════ */
+function dealerTurn(){
+  phase='dealer'; document.getElementById('action-bar').classList.remove('show'); render();
+  const alive=hands.some(h=>handValue(h.cards)<=21);
+  (function step(){
+    if(alive && handValue(dealer)<17){ dealer.push(draw()); render(); setTimeout(step,600); }
+    else { setTimeout(settle,400); }
+  })();
+}
+function settle(){
+  phase='result'; render();
+  const dv=handValue(dealer), dbj=isBJ(dealer);
+  let wagered = hands.reduce((s,h)=>s+h.bet,0) + insurance;
+  let ret=0, parts=[];
+  if(dbj && insurance>0) ret += insurance*3; // 元返し＋2:1
+  hands.forEach((h,i)=>{
+    const pv=handValue(h.cards), pbj=isBJ(h.cards)&&!h.split; let out,r=0;
+    if(pv>21){ out='バースト'; r=0; }
+    else if(pbj && !dbj){ out='ブラックジャック'; r=h.bet*2.5; }
+    else if(pbj && dbj){ out='プッシュ'; r=h.bet; }
+    else if(dbj){ out='負け'; r=0; }
+    else if(dv>21){ out='勝ち（親バースト）'; r=h.bet*2; }
+    else if(pv>dv){ out='勝ち'; r=h.bet*2; }
+    else if(pv===dv){ out='プッシュ'; r=h.bet; }
+    else { out='負け'; r=0; }
+    ret+=r; parts.push(hands.length>1?`ハンド${i+1}：${out}`:out);
+  });
+  balance+=ret; saveBalance();
+  const delta=ret-wagered;
+  lastResult={delta, balance, parts:parts.join(' / ')};
+  render(); showResultOverlay(delta, parts.join(' / '));
+}
+function showResultOverlay(delta, detail){
+  const t=document.getElementById('ov-title'), d=document.getElementById('ov-delta'), de=document.getElementById('ov-detail');
+  let cls,label;
+  if(delta>0){ cls='win'; label='WIN'; } else if(delta<0){ cls='lose'; label='LOSE'; } else { cls='push'; label='PUSH'; }
+  if(/ブラックジャック/.test(detail) && delta>0) label='BLACKJACK!';
+  t.className='ov-title '+cls; t.textContent=label;
+  d.className='ov-delta '+(delta>=0?'plus':'minus'); d.textContent=(delta>=0?'+':'')+fmt(delta)+' チップ';
+  de.textContent=detail+' ／ 残高 '+fmt(balance);
+  document.getElementById('ov-result').classList.add('show');
+}
+
+/* ════════ 描画 ════════ */
+function cardHTML(c, hidden){
+  if(hidden) return '<div class="card back"></div>';
+  return `<div class="card ${isRed(c.suit)?'red':''}"><span class="corner">${c.rank}${c.suit}</span><span class="pip">${c.suit}</span></div>`;
+}
+function render(){
+  document.getElementById('balance').textContent=fmt(balance);
+  document.getElementById('bet').textContent=fmt(bet);
+  // ディーラー
+  const hideHole = (phase==='player'||phase==='deal'||phase==='insurance');
+  const dc=document.getElementById('dealer-cards');
+  dc.innerHTML = dealer.map((c,i)=>cardHTML(c, hideHole && i===1)).join('');
+  document.getElementById('dealer-val').textContent = dealer.length? (hideHole? '' : handValue(dealer)) : '';
+  // プレイヤー
+  const ph=document.getElementById('player-hands');
+  if(!hands.length){ ph.innerHTML=''; }
+  else ph.innerHTML=hands.map((h,i)=>{
+    const v=handValue(h.cards); const bust=v>21; const bj=isBJ(h.cards)&&!h.split;
+    const active=(phase==='player'&&i===hi);
+    return `<div class="hand ${active?'active':''}">
+      <div class="cards">${h.cards.map(c=>cardHTML(c,false)).join('')}</div>
+      <span class="val-badge ${bust?'bust':''} ${bj?'bj':''}">${bj?'BJ':v}</span>
+      <span class="bet-chip">▮ ${fmt(h.bet)}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ════════ シェア・note・コピー ════════ */
+function shareResult(){
+  const r=lastResult; if(!r) return;
+  const sign=r.delta>=0?'+':'';
+  const text=`@ai_side_haku のBLACKJACKで ${sign}${fmt(r.delta)}チップ🃏\n残高：${fmt(r.balance)}\n\nあなたもディーラーに挑戦👇\n${APP_URL}\n\n#BLACKJACK #カジノ #ChatGPT #Haku`;
+  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,'_blank');
+}
+function copyResult(){
+  const r=lastResult; if(!r) return;
+  navigator.clipboard.writeText(`【BLACKJACK】${r.delta>=0?'+':''}${fmt(r.delta)}チップ／残高${fmt(r.balance)}\n${APP_URL}`)
+    .then(()=>flash('結果をコピーしました'));
+}
+function openNote(){
+  if(NOTE_URL==='#'){ flash('note記事は準備中です（@ai_side_haku）'); return; }
+  window.open(NOTE_URL,'_blank');
+}
+
+/* 初期化 */
+loadBalance(); render();
+</script>
+</body>
+</html>
